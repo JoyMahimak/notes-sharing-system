@@ -1,35 +1,20 @@
-# 📚 Notes Sharing System (DevOps Project)
+# 📚 Notes Sharing System
 
-## 📌 Description
-This is a simple Notes Sharing Web Application where users can:
-- Upload notes (PDF, PPT, etc.)
-- View available notes
-- Download notes
+## Features
+- Upload Notes
+- Download Notes
+- Delete Notes
+- Rename Notes (CRUD)
+- Search Functionality
 
-## 🛠 Tech Stack
-- Frontend: HTML, CSS, JavaScript
-- Backend: Python (Flask)
-- DevOps: Docker, Docker Compose
+## Technologies Used
+- Flask (Python)
+- HTML, CSS, Bootstrap
+- Docker
+- Selenium
 
-## 🚀 How to Run
+## Run Project
+python app.py
 
-### 1. Clone the repository
-git clone <your-repo-link>
-
-### 2. Navigate to backend
-cd backend
-
-### 3. Run using Docker
+## Docker Run
 docker-compose up --build
-
-### 4. Open browser
-http://localhost:5000
-
-## 📂 Features
-- File upload
-- File listing
-- File download
-- Dockerized application
-
-## 👩‍💻 Author
-Joy Mahima
