@@ -1,44 +1,73 @@
-from flask import Flask, request, jsonify, send_from_directory
-from flask_cors import CORS
+from flask import Flask, render_template, request, redirect, url_for, send_from_directory, flash
 import os
 
 app = Flask(__name__)
-CORS(app)  # allow frontend to connect
+app.secret_key = "secretkey"
 
-# Folder to store uploaded files
 UPLOAD_FOLDER = os.path.join(os.getcwd(), 'uploads')
-
-# Create uploads folder if not exists
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
-# Home route
+# HOME (READ)
 @app.route('/')
 def home():
-    return "Backend Running!"
-
-# Upload file
-@app.route('/upload', methods=['POST'])
-def upload_file():
-    if 'file' not in request.files:
-        return jsonify({"message": "No file provided"}), 400
-
-    file = request.files['file']
-    file.save(os.path.join(UPLOAD_FOLDER, file.filename))
-
-    return jsonify({"message": "File uploaded successfully"})
-
-# Get all uploaded files
-@app.route('/notes', methods=['GET'])
-def get_notes():
     files = os.listdir(UPLOAD_FOLDER)
-    return jsonify(files)
+    return render_template('index.html', files=files)
 
-# Download file
-@app.route('/download/<filename>', methods=['GET'])
+# UPLOAD (CREATE)
+@app.route('/upload', methods=['GET', 'POST'])
+def upload():
+    if request.method == 'POST':
+        if 'file' not in request.files:
+            flash("No file selected")
+            return redirect(request.url)
+
+        file = request.files['file']
+
+        if file.filename == '':
+            flash("No file selected")
+            return redirect(request.url)
+
+        file.save(os.path.join(UPLOAD_FOLDER, file.filename))
+        flash(f"{file.filename} uploaded successfully!")
+
+        return redirect(url_for('home'))
+
+    return render_template('upload.html')
+
+# DOWNLOAD
+@app.route('/download/<filename>')
 def download_file(filename):
     return send_from_directory(UPLOAD_FOLDER, filename, as_attachment=True)
 
-# Run app (ALWAYS LAST)
+# DELETE
+@app.route('/delete/<filename>')
+def delete_file(filename):
+    path = os.path.join(UPLOAD_FOLDER, filename)
+
+    if os.path.exists(path):
+        os.remove(path)
+        flash(f"{filename} deleted successfully!")
+    else:
+        flash("File not found")
+
+    return redirect(url_for('home'))
+
+# UPDATE (RENAME)
+@app.route('/rename/<old_name>', methods=['POST'])
+def rename_file(old_name):
+    new_name = request.form['new_name']
+
+    old_path = os.path.join(UPLOAD_FOLDER, old_name)
+    new_path = os.path.join(UPLOAD_FOLDER, new_name)
+
+    if os.path.exists(old_path):
+        os.rename(old_path, new_path)
+        flash(f"{old_name} renamed to {new_name}")
+    else:
+        flash("File not found")
+
+    return redirect(url_for('home'))
+
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0')
+    app.run(host='0.0.0.0', port=5000, debug=True)
