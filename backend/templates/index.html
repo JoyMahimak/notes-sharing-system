@@ -2,91 +2,92 @@
 <html>
 <head>
     <title>Notes Sharing System</title>
+    <style>
+        body {
+            font-family: Arial;
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
 
-    <!-- Bootstrap -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+        .container {
+            width: 80%;
+            margin: auto;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        form {
+            margin-bottom: 20px;
+        }
+
+        input, button {
+            padding: 8px;
+            margin: 5px;
+        }
+
+        .note {
+            background: white;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+
+        .btn {
+            padding: 5px 10px;
+            text-decoration: none;
+            margin-right: 5px;
+        }
+
+        .download { background: green; color: white; }
+        .delete { background: red; color: white; }
+        .rename { background: orange; color: white; }
+    </style>
 </head>
 
-<body class="bg-light">
+<body>
 
-<!-- NAVBAR -->
-<nav class="navbar navbar-dark bg-dark">
-  <div class="container-fluid">
-    <span class="navbar-brand">📚 Notes Sharing System</span>
-    <a class="btn btn-success" href="{{ url_for('upload') }}">Upload</a>
-  </div>
-</nav>
+<div class="container">
 
-<div class="container mt-4">
+    <h1>📚 Notes Sharing System</h1>
 
-<!-- SEARCH -->
-<input type="text" id="search" class="form-control mb-3" placeholder="🔍 Search notes...">
+    <!-- Upload Form -->
+    <form action="/upload" method="POST" enctype="multipart/form-data">
+        <input type="text" name="title" placeholder="Enter title" required>
+        <input type="file" name="file" required>
+        <button type="submit">Upload</button>
+    </form>
 
-<!-- FILE COUNT -->
-<p><b>Total Files: {{ files|length }}</b></p>
+    <!-- 🔍 Search Bar -->
+    <form method="GET">
+        <input type="text" name="search" placeholder="Search notes...">
+        <button type="submit">Search</button>
+    </form>
 
-<!-- FLASH -->
-{% with messages = get_flashed_messages() %}
-  {% if messages %}
-    <div class="alert alert-info">
-      {% for msg in messages %}
-        <div>{{ msg }}</div>
-      {% endfor %}
-    </div>
-  {% endif %}
-{% endwith %}
+    <h2>Available Notes</h2>
 
-<!-- FILE LIST -->
-<div id="notesList">
+    {% for note in notes %}
+    <div class="note">
+        <b>{{ note.title }}</b> ({{ note.filename }})
 
-{% for file in files %}
-<div class="card mb-3 note-item">
-    <div class="card-body d-flex justify-content-between align-items-center">
+        <br><br>
 
-        <!-- FILE NAME WITH ICON -->
-        <span class="file-name">
-            {% if file.endswith('.pdf') %}📄
-            {% elif file.endswith('.pptx') %}📊
-            {% else %}📁
-            {% endif %}
-            <b>{{ file }}</b>
-        </span>
+        <a class="btn download" href="/download/{{ note.filename }}">Download</a>
+        <a class="btn delete" href="/delete/{{ note.id }}">Delete</a>
 
-        <!-- ACTIONS -->
-        <div>
-            <a class="btn btn-primary btn-sm" href="{{ url_for('download_file', filename=file) }}">Download</a>
-            <a class="btn btn-danger btn-sm" href="{{ url_for('delete_file', filename=file) }}">Delete</a>
-        </div>
-
-    </div>
-
-    <!-- RENAME -->
-    <div class="card-body pt-0">
-        <form action="{{ url_for('rename_file', old_name=file) }}" method="POST" class="d-flex">
-            <input type="text" name="new_name" class="form-control me-2" placeholder="Rename file" required>
-            <button class="btn btn-warning btn-sm">Rename</button>
+        <!-- Rename -->
+        <form action="/rename/{{ note.id }}" method="POST" style="display:inline;">
+            <input type="text" name="title" placeholder="New title">
+            <button class="rename" type="submit">Rename</button>
         </form>
     </div>
+    {% endfor %}
+
+    <br>
+    <a href="/logout">Logout</a>
 
 </div>
-{% endfor %}
-
-</div>
-
-</div>
-
-<!-- SEARCH SCRIPT -->
-<script>
-document.getElementById("search").addEventListener("keyup", function() {
-    let value = this.value.toLowerCase();
-    let items = document.querySelectorAll(".note-item");
-
-    items.forEach(item => {
-        let text = item.innerText.toLowerCase();
-        item.style.display = text.includes(value) ? "" : "none";
-    });
-});
-</script>
 
 </body>
 </html>

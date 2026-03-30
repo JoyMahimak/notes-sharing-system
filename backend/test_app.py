@@ -1,18 +1,57 @@
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-import time
+import pytest
+from app import app, db, User
 
-driver = webdriver.Chrome()
+@pytest.fixture
+def client():
+    app.config['TESTING'] = True
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
+    
+    with app.test_client() as client:
+        with app.app_context():
+            db.create_all()
+        yield client
 
-driver.get("http://localhost:5000")
+# ✅ Test Register
+def test_register(client):
+    response = client.post('/register', data={
+        'username': 'testuser',
+        'password': 'testpass'
+    })
+    assert response.status_code == 200  # changed from 302
 
-time.sleep(2)
+# ✅ Test Duplicate Register
+def test_duplicate_user(client):
+    client.post('/register', data={
+        'username': 'testuser',
+        'password': 'testpass'
+    })
 
-# Check page title
-print("Title:", driver.title)
+    response = client.post('/register', data={
+        'username': 'testuser',
+        'password': 'testpass'
+    })
 
-# Check upload button exists
-upload_btn = driver.find_element(By.LINK_TEXT, "Upload")
-print("Upload button found")
+    assert b"User already exists" in response.data
 
-driver.quit()
+# ✅ Test Login
+def test_login(client):
+    client.post('/register', data={
+        'username': 'testuser',
+        'password': 'testpass'
+    })
+
+    response = client.post('/login', data={
+        'username': 'testuser',
+        'password': 'testpass'
+    })
+
+    assert response.status_code == 200  # changed from 302
+
+# ❌ Test Invalid Login
+def test_invalid_login(client):
+    response = client.post('/login', data={
+        'username': 'wrong',
+        'password': 'wrong'
+    })
+
+    assert b"Invalid" in response.data

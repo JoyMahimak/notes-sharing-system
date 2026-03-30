@@ -1,73 +1,142 @@
-from flask import Flask, render_template, request, redirect, url_for, send_from_directory, flash
+from flask import Flask, render_template, request, redirect, session, send_from_directory
+from flask_sqlalchemy import SQLAlchemy
 import os
 
+# CREATE APP FIRST ✅
 app = Flask(__name__)
-app.secret_key = "secretkey"
+app.secret_key = 'secret123'
 
-UPLOAD_FOLDER = os.path.join(os.getcwd(), 'uploads')
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
+# DATABASE CONFIG
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///notes.db'
+db = SQLAlchemy(app)
 
-# HOME (READ)
+# UPLOAD FOLDER
+UPLOAD_FOLDER = 'uploads'
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+# ================= MODELS =================
+
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(100), unique=True)
+    password = db.Column(db.String(100))
+
+
+class Note(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(100))
+    filename = db.Column(db.String(100))
+    user_id = db.Column(db.Integer)
+
+# CREATE DATABASE
+with app.app_context():
+    db.create_all()
+
+# ================= ROUTES =================
+
 @app.route('/')
 def home():
-    files = os.listdir(UPLOAD_FOLDER)
-    return render_template('index.html', files=files)
+    if 'user_id' not in session:
+        return redirect('/login')
 
-# UPLOAD (CREATE)
-@app.route('/upload', methods=['GET', 'POST'])
-def upload():
+    search = request.args.get('search')
+
+    if search:
+        notes = Note.query.filter(
+            Note.user_id == session['user_id'],
+            Note.title.contains(search)
+        ).all()
+    else:
+        notes = Note.query.filter_by(user_id=session['user_id']).all()
+
+    return render_template('index.html', notes=notes)
+
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
     if request.method == 'POST':
-        if 'file' not in request.files:
-            flash("No file selected")
-            return redirect(request.url)
+        username = request.form['username']
+        password = request.form['password']
 
-        file = request.files['file']
+        existing_user = User.query.filter_by(username=username).first()
 
-        if file.filename == '':
-            flash("No file selected")
-            return redirect(request.url)
+        if existing_user:
+            return "User already exists!"
 
-        file.save(os.path.join(UPLOAD_FOLDER, file.filename))
-        flash(f"{file.filename} uploaded successfully!")
+        user = User(username=username, password=password)
+        db.session.add(user)
+        db.session.commit()
 
-        return redirect(url_for('home'))
+        return redirect('/login')
 
-    return render_template('upload.html')
+    return render_template('register.html')
 
-# DOWNLOAD
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+
+        user = User.query.filter_by(username=username, password=password).first()
+
+        if user:
+            session['user_id'] = user.id
+            return redirect('/')
+
+        return "Invalid credentials!"
+
+    return render_template('login.html')
+
+
+@app.route('/logout')
+def logout():
+    session.pop('user_id', None)
+    return redirect('/login')
+
+
+@app.route('/upload', methods=['POST'])
+def upload():
+    if 'user_id' not in session:
+        return redirect('/login')
+
+    file = request.files['file']
+    title = request.form['title']
+
+    if file:
+        filepath = os.path.join(UPLOAD_FOLDER, file.filename)
+        file.save(filepath)
+
+        note = Note(title=title, filename=file.filename, user_id=session['user_id'])
+        db.session.add(note)
+        db.session.commit()
+
+    return redirect('/')
+
+
 @app.route('/download/<filename>')
-def download_file(filename):
+def download(filename):
     return send_from_directory(UPLOAD_FOLDER, filename, as_attachment=True)
 
-# DELETE
-@app.route('/delete/<filename>')
-def delete_file(filename):
-    path = os.path.join(UPLOAD_FOLDER, filename)
 
-    if os.path.exists(path):
-        os.remove(path)
-        flash(f"{filename} deleted successfully!")
-    else:
-        flash("File not found")
+@app.route('/delete/<int:id>')
+def delete(id):
+    note = Note.query.get(id)
+    if note:
+        db.session.delete(note)
+        db.session.commit()
+    return redirect('/')
 
-    return redirect(url_for('home'))
 
-# UPDATE (RENAME)
-@app.route('/rename/<old_name>', methods=['POST'])
-def rename_file(old_name):
-    new_name = request.form['new_name']
+@app.route('/rename/<int:id>', methods=['POST'])
+def rename(id):
+    note = Note.query.get(id)
+    if note:
+        note.title = request.form['title']
+        db.session.commit()
+    return redirect('/')
 
-    old_path = os.path.join(UPLOAD_FOLDER, old_name)
-    new_path = os.path.join(UPLOAD_FOLDER, new_name)
 
-    if os.path.exists(old_path):
-        os.rename(old_path, new_path)
-        flash(f"{old_name} renamed to {new_name}")
-    else:
-        flash("File not found")
-
-    return redirect(url_for('home'))
-
+# RUN APP
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(debug=True)
