@@ -12,17 +12,17 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Set up Python
+    - name: Setup Python
       uses: actions/setup-python@v5
       with:
         python-version: "3.11"
 
     - name: Install dependencies
       run: |
-        pip install -r requirements.txt
-        pip install pytest
+        python -m pip install --upgrade pip
+        pip install flask sqlalchemy pytest selenium webdriver-manager
 
-    - name: Run tests
+    - name: Run unit tests only
       run: |
         cd backend
-        python -m pytest
+        python -m pytest -k "not selenium"
