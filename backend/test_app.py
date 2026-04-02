@@ -1,5 +1,6 @@
 import pytest
 from app import app, db, Note
+import io
 
 @pytest.fixture
 def client():
@@ -19,8 +20,10 @@ def test_home_page(client):
 
 def test_upload_note(client):
     data = {
-        'title': 'Test Note'
+        'title': 'Test Note',
+        'file': (io.BytesIO(b"dummy content"), 'test.txt')  # ✅ FIX HERE
     }
 
-    response = client.post('/upload', data=data)
+    response = client.post('/upload', data=data, content_type='multipart/form-data')
+    
     assert response.status_code == 302  # redirect after upload
