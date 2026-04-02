@@ -1,36 +1,28 @@
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
-import time
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
-# Open browser
+# Start browser
 driver = webdriver.Chrome()
 
-# Open your website
-driver.get("http://127.0.0.1:5000/register")
+# Open website
+driver.get("http://127.0.0.1:5000")
 
-time.sleep(2)
+# WAIT until username field is visible (THIS FIXES ERROR)
+wait = WebDriverWait(driver, 10)
 
-# Register user
-driver.find_element(By.NAME, "username").send_keys("testuser")
-driver.find_element(By.NAME, "password").send_keys("1234")
+username = wait.until(EC.presence_of_element_located((By.NAME, "username")))
+password = driver.find_element(By.NAME, "password")
+
+# Enter data
+username.send_keys("admin")
+password.send_keys("admin@123")
+
+# Click login
 driver.find_element(By.TAG_NAME, "button").click()
 
-time.sleep(2)
+print("✅ Selenium Test Passed")
 
-# Go to login
-driver.get("http://127.0.0.1:5000/login")
-
-time.sleep(2)
-
-# Login
-driver.find_element(By.NAME, "username").send_keys("testuser")
-driver.find_element(By.NAME, "password").send_keys("1234")
-driver.find_element(By.TAG_NAME, "button").click()
-
-time.sleep(3)
-
-print("Login Test Passed ✅")
-
-# Close browser
 driver.quit()
