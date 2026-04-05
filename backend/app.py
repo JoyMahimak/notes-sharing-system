@@ -1,98 +1,115 @@
-from flask import Flask, render_template, request, redirect, url_for, send_from_directory
-from flask_sqlalchemy import SQLAlchemy
 import os
+from flask import Flask, render_template, request, redirect, send_from_directory, session
+from flask_sqlalchemy import SQLAlchemy
+from datetime import datetime
 
 app = Flask(__name__)
 
-# Database setup
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///notes.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['UPLOAD_FOLDER'] = 'uploads'
+app.config['SECRET_KEY'] = 'secret'
 
 db = SQLAlchemy(app)
 
-# 👤 User Model (FIXED ✅ for pytest)
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(100), unique=True)
-    password = db.Column(db.String(200))
-
-# 📄 Notes Model
+# -------- MODEL --------
 class Note(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(100))
-    filename = db.Column(db.String(100))
-
-# Upload folder
-UPLOAD_FOLDER = 'uploads'
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
+    title = db.Column(db.String(200))
+    filename = db.Column(db.String(200))
+    favorite = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 # Create DB
 with app.app_context():
     db.create_all()
 
-# 🔐 LOGIN PAGE
+# -------- LOGIN --------
 @app.route('/', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-
-        if username == "admin" and password == "admin@123":
-            return redirect(url_for('home'))
-        else:
-            return "Invalid credentials!"
-
+        if request.form['username'] == 'admin' and request.form['password'] == 'admin@123':
+            session['user'] = request.form['username']
+            return redirect('/home')
+        return "Invalid credentials!"
     return render_template('login.html')
 
+# -------- LOGOUT --------
+@app.route('/logout')
+def logout():
+    session.pop('user', None)
+    return redirect('/')
 
-# 🏠 HOME PAGE
+# -------- HOME --------
 @app.route('/home')
 def home():
-    notes = Note.query.all()
-    return render_template('index.html', notes=notes)
+    if 'user' not in session:
+        return redirect('/')
 
+    search = request.args.get('search')
 
-# 📤 UPLOAD NOTE
+    if search:
+        notes = Note.query.filter(Note.title.contains(search)).all()
+    else:
+        notes = Note.query.order_by(Note.created_at.desc()).all()
+
+    total_notes = Note.query.count()
+    favorites = Note.query.filter_by(favorite=True).count()
+
+    return render_template('index.html', notes=notes,
+                           total_notes=total_notes,
+                           favorites=favorites)
+
+# -------- UPLOAD --------
 @app.route('/upload', methods=['POST'])
 def upload():
+    if 'user' not in session:
+        return redirect('/')
+
     file = request.files['file']
-    title = request.form['title']
 
     if file:
-        filepath = os.path.join(UPLOAD_FOLDER, file.filename)
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
         file.save(filepath)
 
-        note = Note(title=title, filename=file.filename)
-        db.session.add(note)
+        new_note = Note(
+            title=file.filename,
+            filename=file.filename
+        )
+
+        db.session.add(new_note)
         db.session.commit()
 
-    return redirect(url_for('home'))
+    return redirect('/home')
 
+# -------- DOWNLOAD --------
+@app.route('/download/<filename>')
+def download(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename, as_attachment=True)
 
-# 📥 DOWNLOAD NOTE
-@app.route('/uploads/<filename>')
-def download_file(filename):
-    return send_from_directory(UPLOAD_FOLDER, filename, as_attachment=True)
-
-
-# ❌ DELETE NOTE
+# -------- DELETE --------
 @app.route('/delete/<int:id>')
 def delete(id):
     note = Note.query.get(id)
+    db.session.delete(note)
+    db.session.commit()
+    return redirect('/home')
 
-    if note:
-        file_path = os.path.join(UPLOAD_FOLDER, note.filename)
+# -------- FAVORITE --------
+@app.route('/favorite/<int:id>', methods=['POST'])
+def favorite(id):
+    note = Note.query.get(id)
+    note.favorite = not note.favorite
+    db.session.commit()
+    return redirect('/home')
 
-        if os.path.exists(file_path):
-            os.remove(file_path)
+# -------- RENAME --------
+@app.route('/rename/<int:id>', methods=['POST'])
+def rename(id):
+    note = Note.query.get(id)
+    note.title = request.form['new_title']
+    db.session.commit()
+    return redirect('/home')
 
-        db.session.delete(note)
-        db.session.commit()
-
-    return redirect(url_for('home'))
-
-
-# ▶️ RUN APP
+# -------- RUN --------
 if __name__ == '__main__':
     app.run(debug=True)

@@ -1,7 +1,12 @@
-version: '3'
+version: "3.9"
 
 services:
   web:
-    build: .
+    build: ./backend
+    container_name: notes-sharing-system_web
     ports:
       - "5000:5000"
+    volumes:
+      - ./uploads:/app/uploads
+      - ./backend:/app
+    command: python app.py
