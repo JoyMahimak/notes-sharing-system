@@ -14,7 +14,7 @@ def client():
 
 
 def test_home_page(client):
-    response = client.get('/home')
+    response = client.get('/home', follow_redirects=True)
     assert response.status_code == 200
 
 
